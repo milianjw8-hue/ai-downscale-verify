@@ -1,0 +1,18 @@
+# data and results are never committed
+data/
+outputs/
+*.nc
+*.grib
+*.grb2
+*.h5
+*.zarr/
+# secrets
+.cdsapirc
+.env
+# python
+__pycache__/
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.ipynb_checkpoints/

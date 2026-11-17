@@ -1,0 +1,14 @@
+name: dsverify
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - numpy
+  - pandas
+  - xarray
+  - netcdf4
+  - scipy
+  - matplotlib
+  - pyyaml
+  - pytest
+  - pip

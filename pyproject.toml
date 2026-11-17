@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dsverify"
+version = "0.1.0"
+description = "Verify AI-downscaled near-surface wind (e.g. CorrDiff) against independent ASOS/AWS observations"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Joo Wan Cha" }]
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.24",
+  "pandas>=2.0",
+  "xarray>=2023.1",
+  "netCDF4>=1.6",
+  "scipy>=1.10",
+  "matplotlib>=3.7",
+  "pyyaml>=6.0",
+]
+keywords = ["meteorology", "downscaling", "CorrDiff", "verification", "wind", "ERA5", "ASOS"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Topic :: Scientific/Engineering :: Atmospheric Science",
+]
+
+[project.optional-dependencies]
+download = ["cdsapi>=0.7", "requests>=2.31"]
+dev = ["pytest>=7"]
+
+[project.scripts]
+dsverify = "dsverify.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

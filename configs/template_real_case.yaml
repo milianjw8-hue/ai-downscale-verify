@@ -1,0 +1,52 @@
+# Template for a real case. Copy, rename and edit.
+# Only public data should be committed to the repository. Keep restricted model output
+# (e.g. operational NWP or in-house AI products) outside the repository and point to it here.
+
+case: jeju_20250412_strong_wind
+root: ..
+
+period:
+  start: "2025-04-11T18:00"   # UTC
+  end: "2025-04-12T18:00"
+
+obs:
+  format: kma_portal           # CSV from data.kma.go.kr (ASOS hourly) or api_json from scripts/fetch_asos_hourly.py
+  path: data/obs/asos_hourly_202504.csv
+  station_meta: data/obs/stations.csv   # station,name,lat,lon,height_m
+  timezone: Asia/Seoul
+  stations: ["184", "185", "188", "189"]
+  adjust_to_10m: false
+
+models:
+  - name: ERA5
+    path: data/era5/era5_u10v10_20250411-12.nc   # from scripts/download_era5.py
+    u: u10
+    v: v10
+    lat: latitude
+    lon: longitude
+    time: valid_time
+    interp: bilinear
+    max_dist_km: 30
+  - name: CorrDiff
+    path: /path/outside/repo/corrdiff_output_*.nc   # glob allowed
+    u: u10m
+    v: v10m
+    lat: lat
+    lon: lon
+    time: time
+    interp: idw4
+    max_dist_km: 3
+  # - name: GDAPS
+  #   path: /path/outside/repo/gdaps_*.nc
+  #   u: u10
+  #   v: v10
+  #   lat: lat
+  #   lon: lon
+  #   interp: idw4
+  #   max_dist_km: 15
+
+reference: ERA5
+common_sample: true
+thresholds_ms: [10, 14, 20]
+bootstrap: {n: 2000, block: 24, seed: 0}
+output: outputs/jeju_20250412

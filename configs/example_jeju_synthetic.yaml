@@ -1,0 +1,48 @@
+# Demo run on SYNTHETIC data. Create the data first:
+#   python scripts/make_synthetic_demo.py
+# then:
+#   dsverify run configs/example_jeju_synthetic.yaml
+
+case: jeju_synthetic_strong_wind
+root: ..                      # paths below are relative to the repository root
+
+period:                       # UTC
+  start: "2025-04-11T12:00"
+  end: "2025-04-12T23:00"
+
+obs:
+  format: kma_portal          # kma_portal | api_json | tidy
+  path: data/demo/asos_hourly.csv
+  station_meta: data/demo/stations.csv
+  timezone: Asia/Seoul        # KMA portal times are KST; converted to UTC internally
+  adjust_to_10m: false        # set true and fill height_m in stations.csv to apply log-law
+
+models:
+  - name: ERA5
+    path: data/demo/era5_like.nc
+    u: u10
+    v: v10
+    lat: latitude
+    lon: longitude
+    time: valid_time          # new CDS NetCDF uses valid_time
+    interp: bilinear
+    max_dist_km: 30
+  - name: CorrDiff
+    path: data/demo/corrdiff_like.nc
+    u: u10m
+    v: v10m
+    lat: lat                  # 2-D curvilinear coordinates
+    lon: lon
+    time: time
+    interp: idw4              # nearest | idw4 for curvilinear grids
+    max_dist_km: 3
+
+reference: ERA5               # MSE skill score of the other models relative to this one
+common_sample: true           # verify all models on the same (station, time) pairs
+thresholds_ms: [10, 14, 20]   # strong-wind event thresholds (m/s)
+bootstrap:
+  n: 1000
+  block: 24                   # hours; keeps diurnal autocorrelation inside blocks
+  seed: 0
+
+output: outputs/jeju_synthetic
