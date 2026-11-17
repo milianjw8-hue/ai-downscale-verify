@@ -21,7 +21,7 @@ AI 다운스케일링 모델은 보통 고해상도 **수치모델 출력**을 �
 ## 설치
 
 ```bash
-git clone https://github.com/<계정>/ai-downscale-verify.git
+git clone https://github.com/milianjw8-hue/ai-downscale-verify.git
 cd ai-downscale-verify
 pip install -e ".[dev]"            # 자료 내려받기까지 쓰려면 ".[dev,download]"
 ```
