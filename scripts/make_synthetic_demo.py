@@ -5,6 +5,7 @@ crude island-friction term and a west-tip acceleration near Gosan) is sampled to
 
   data/demo/era5_like.nc      0.25 deg regular grid, smoothed and slightly weakened
   data/demo/corrdiff_like.nc  ~1 km curvilinear grid (2-D lat/lon), truth + noise
+  data/demo/corrdiff_ens_like.nc  same grid, 8-member ensemble (dimension "ensemble")
   data/demo/asos_hourly.csv   4 stations, KMA-portal style CSV (CP949, KST)
   data/demo/stations.csv      station metadata (approximate coordinates)
 
@@ -59,6 +60,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="data/demo")
     ap.add_argument("--seed", type=int, default=42)
+    ap.add_argument("--members", type=int, default=8, help="ensemble size of the CorrDiff-like ensemble file")
     args = ap.parse_args()
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
@@ -105,6 +107,7 @@ def main():
     for t in range(len(times)):
         cu[t] = RegularGridInterpolator((flat, flon), tu[t])(pts2).reshape(ny, nx)
         cv[t] = RegularGridInterpolator((flat, flon), tv[t])(pts2).reshape(ny, nx)
+    cu_clean, cv_clean = cu.copy(), cv.copy()
     cu += rng.normal(0.2, 1.0, cu.shape).astype("float32")
     cv += rng.normal(0.0, 1.0, cv.shape).astype("float32")
     xr.Dataset(
@@ -112,6 +115,17 @@ def main():
         coords={"time": times, "lat": (("y", "x"), lat2), "lon": (("y", "x"), lon2)},
         attrs={"title": "SYNTHETIC CorrDiff-like field for dsverify demo (not real data)"},
     ).to_netcdf(out / "corrdiff_like.nc")
+
+    # CorrDiff-like ENSEMBLE on the same grid (dimension "ensemble", as Earth2Studio writes it):
+    # each member = truth + independent noise, so spread roughly matches the error
+    n_ens = args.members
+    eu = cu_clean[None] + rng.normal(0.2, 1.0, (n_ens, *cu.shape)).astype("float32")
+    ev = cv_clean[None] + rng.normal(0.0, 1.0, (n_ens, *cv.shape)).astype("float32")
+    xr.Dataset(
+        {"u10m": (("ensemble", "time", "y", "x"), eu), "v10m": (("ensemble", "time", "y", "x"), ev)},
+        coords={"ensemble": np.arange(n_ens), "time": times, "lat": (("y", "x"), lat2), "lon": (("y", "x"), lon2)},
+        attrs={"title": "SYNTHETIC CorrDiff-like ensemble for dsverify demo (not real data)"},
+    ).to_netcdf(out / "corrdiff_ens_like.nc")
 
     # Observations: truth at stations + instrument/representativeness noise, KST, 16-point direction
     rows = []

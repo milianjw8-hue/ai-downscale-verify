@@ -62,13 +62,35 @@ $$\mathrm{MSESS} = 1 - \frac{\mathrm{MSE}_{\text{model}}}{\mathrm{MSE}_{\text{re
 여러 지점을 합쳐 계산할 때는 (지점, 시각) 순으로 이어 붙이므로 블록이 지점 경계를 넘는 경우가 일부 생깁니다.
 사례 수가 적으면 지점별 결과를 함께 보고하는 것을 권합니다.
 
-## 5. 한계
+## 5. 확률(앙상블) 검증
+
+구성원 $x_1, \dots, x_m$, 관측 $y$.
+
+| 지표 | 정의 | 해석 |
+|---|---|---|
+| CRPS | $\frac{1}{m}\sum_i \lvert x_i - y\rvert - \frac{1}{2m^2}\sum_{i,j}\lvert x_i - x_j\rvert$ | 0이 완벽. 결정론 예측($m=1$)이면 절대오차와 같음 |
+| 공정 CRPS | 둘째 항의 분모를 $2m(m-1)$로 바꿈 (Ferro, 2014) | 구성원 수가 다른 앙상블을 공정하게 비교 |
+| CRPSS | $1 - \overline{\mathrm{CRPS}} / \overline{\mathrm{CRPS}}_{\mathrm{ref}}$ | 기준 자료(예: ERA5) 대비 개선 |
+| 퍼짐-오차 비 | $\sqrt{\tfrac{m+1}{m}\,\overline{s^2}} \,/\, \mathrm{RMSE}(\bar{x})$ (Fortin et al., 2014) | 1이면 퍼짐이 오차와 맞음, 1보다 작으면 과소 퍼짐 |
+| 순위 히스토그램 | 구성원 사이에서 관측의 순위(동순위는 무작위 배정) | 평평하면 일관, U자면 과소 퍼짐 |
+| 평탄도 $\delta$ | $\sum_k (s_k - n/K)^2 / [n(K-1)/K]$ (Candille & Talagrand, 2005) | 1 근처면 평평 |
+| 브라이어 점수 | $\overline{(p - o)^2}$, $p$ = 임계값 이상 구성원 비율 | 신뢰도·분해능·불확실성으로 분해(Murphy, 1973) |
+
+CRPS는 정렬한 구성원으로 $O(m \log m)$에 계산합니다. 구성원 풍속의 평균을 앙상블 평균 풍속으로 씁니다.
+
+## 6. 한계
 
 - 지점 관측은 격자 평균과 공간 대표성이 다릅니다. 특히 해안, 산지, 섬 끝처럼 지형 효과가 큰 곳에서 차이가 큽니다.
 - 짧은 단일 사례의 점수는 불확실성이 큽니다. 신뢰구간을 함께 보고합니다.
 - 로그 법칙 높이 보정은 중립 성층과 균일한 지면을 가정합니다.
 
 ## 참고 문헌
+
+- Candille, G., & Talagrand, O. (2005). Evaluation of probabilistic prediction systems for a scalar variable. *Q. J. R. Meteorol. Soc.*, 131, 2131–2150.
+- Ferro, C. A. T. (2014). Fair scores for ensemble forecasts. *Q. J. R. Meteorol. Soc.*, 140, 1917–1923.
+- Fortin, V., et al. (2014). Why should ensemble spread match the RMSE of the ensemble mean? *J. Hydrometeor.*, 15, 1708–1713.
+- Hersbach, H. (2000). Decomposition of the continuous ranked probability score for ensemble prediction systems. *Wea. Forecasting*, 15, 559–570.
+- Murphy, A. H. (1973). A new vector partition of the probability score. *J. Appl. Meteor.*, 12, 595–600.
 
 - Mardani, M., et al. (2025). Residual corrective diffusion modeling for km-scale atmospheric downscaling. *Communications Earth & Environment*, 6. https://doi.org/10.1038/s43247-025-02042-5
 - Wilks, D. S. (2019). *Statistical Methods in the Atmospheric Sciences* (4th ed.). Elsevier.

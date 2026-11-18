@@ -11,7 +11,9 @@ import yaml
 
 from . import __version__, plots
 from .grid import extract_at_stations, open_model
+from .ensemble import ensemble_scores
 from .metrics import scores_table, skill_vs_reference
+from .wind import uv_to_speed_dir
 from .obs import load_observations
 
 
@@ -37,6 +39,30 @@ def load_config(path) -> dict:
     return cfg
 
 
+def _extract_model(mcfg: dict, stations: pd.DataFrame) -> tuple[pd.DataFrame, pd.DataFrame | None]:
+    """Extract one model at the stations. For an ensemble (`member_dim` in the config, or an
+    `ensemble` dimension) returns the ensemble-mean table and the per-member table."""
+    ds = open_model(mcfg)
+    mdim = mcfg.get("member_dim", "ensemble")
+    if mdim not in ds.dims:
+        ext = extract_at_stations(ds, stations, mcfg)
+        ext["model"] = mcfg["name"]
+        return ext, None
+    parts = []
+    for k in range(ds.sizes[mdim]):
+        e = extract_at_stations(ds.isel({mdim: k}), stations, mcfg)
+        e["member"] = k
+        parts.append(e)
+    members = pd.concat(parts, ignore_index=True)
+    members["model"] = mcfg["name"]
+    g = members.groupby(["station", "time"], as_index=False)
+    mean = g.agg(u=("u", "mean"), v=("v", "mean"), ws=("ws", "mean"), dist_km=("dist_km", "first"))
+    # scalar speed is verified as the mean of member speeds; direction from the mean vector
+    _, mean["wd"] = uv_to_speed_dir(mean["u"], mean["v"])
+    mean["model"] = mcfg["name"]
+    return mean, members
+
+
 def build_matched(cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
     obs, stations = load_observations(cfg["obs"])
     period = cfg.get("period") or {}
@@ -45,12 +71,12 @@ def build_matched(cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
     if period.get("end"):
         obs = obs[obs["time"] <= pd.Timestamp(period["end"])]
 
-    frames = []
+    frames, member_frames = [], []
     for mcfg in cfg["models"]:
-        ds = open_model(mcfg)
-        ext = extract_at_stations(ds, stations, mcfg)
-        ext["model"] = mcfg["name"]
+        ext, members = _extract_model(mcfg, stations)
         frames.append(ext)
+        if members is not None:
+            member_frames.append(members)
     model_long = pd.concat(frames, ignore_index=True)
     matched = model_long.merge(obs, on=["station", "time"], how="inner")
     matched = matched[np.isfinite(matched["ws"]) & np.isfinite(matched["ws_obs"])]
@@ -63,7 +89,12 @@ def build_matched(cfg: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
 
     if matched.empty:
         raise ValueError("no matched obs-model pairs: check time zones, period and station coordinates")
-    return matched.sort_values(["model", "station", "time"]).reset_index(drop=True), stations
+    matched = matched.sort_values(["model", "station", "time"]).reset_index(drop=True)
+    members = None
+    if member_frames:
+        keys = matched[["station", "time", "ws_obs"]].drop_duplicates(["station", "time"])
+        members = pd.concat(member_frames, ignore_index=True).merge(keys, on=["station", "time"], how="inner")
+    return matched, stations, members
 
 
 def run(config_path) -> Path:
@@ -72,7 +103,7 @@ def run(config_path) -> Path:
     figdir = out / "figures"
     figdir.mkdir(parents=True, exist_ok=True)
 
-    matched, stations = build_matched(cfg)
+    matched, stations, members = build_matched(cfg)
     models = [m["name"] for m in cfg["models"]]
     thresholds = cfg.get("thresholds_ms", [10.0, 14.0])
 
@@ -116,7 +147,16 @@ def run(config_path) -> Path:
     plots.qq(matched, models, figdir)
     plots.score_bars(st_cont, models, figdir)
 
-    _write_summary(out, cfg, matched, all_cont, all_cat, skill)
+    prob = pd.DataFrame()
+    if members is not None:
+        prob, rel = ensemble_scores(matched, members, models, thresholds, ref)
+        prob.to_csv(out / "probabilistic_all.csv", index=False)
+        rel.to_csv(out / "reliability_table.csv", index=False)
+        members.to_csv(out / "matched_members.csv", index=False)
+        plots.rank_histograms(members, figdir)
+        plots.reliability(rel, figdir)
+
+    _write_summary(out, cfg, matched, all_cont, all_cat, skill, prob)
     with open(out / "run_info.json", "w", encoding="utf-8") as f:
         json.dump(
             {
@@ -146,7 +186,7 @@ def _fmt(df: pd.DataFrame, cols) -> str:
     return head + "\n".join("| " + " | ".join(str(v) for v in r) + " |" for r in d.itertuples(index=False))
 
 
-def _write_summary(out, cfg, matched, all_cont, all_cat, skill):
+def _write_summary(out, cfg, matched, all_cont, all_cat, skill, prob=None):
     lines = [
         f"# Verification summary: {cfg.get('case', '')}",
         "",
@@ -167,6 +207,14 @@ def _write_summary(out, cfg, matched, all_cont, all_cat, skill):
             "## MSE skill score vs reference (moving-block bootstrap 95% CI)",
             "",
             _fmt(skill, ["model", "reference", "n", "msess", "msess_lo95", "msess_hi95", "p_not_better"]),
+            "",
+        ]
+    if prob is not None and not prob.empty:
+        lines += [
+            "## Probabilistic scores (fair CRPS; deterministic models: CRPS = MAE)",
+            "",
+            _fmt(prob, ["model", "members", "n", "crps", "crps_fair", "crpss_vs_ref", "spread", "rmse_mean",
+                        "spread_skill_ratio", "rank_delta", "outside_fraction", "expected_outside"]),
             "",
         ]
     (out / "summary.md").write_text("\n".join(lines), encoding="utf-8")

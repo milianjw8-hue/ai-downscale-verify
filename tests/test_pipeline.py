@@ -32,5 +32,13 @@ def test_end_to_end_synthetic(tmp_path):
     skill = pd.read_csv(out / "skill_vs_reference.csv")
     assert skill.loc[0, "msess"] > 0
     assert (out / "figures" / "scatter.png").exists()
+    # ensemble model: probabilistic table, CRPS = MAE for deterministic models, ensemble beats ERA5
+    prob = pd.read_csv(out / "probabilistic_all.csv").set_index("model")
+    assert prob.loc["CorrDiff-ENS", "members"] == 8
+    assert abs(prob.loc["CorrDiff", "crps"] - scores.loc["CorrDiff", "mae"]) < 1e-9
+    assert prob.loc["CorrDiff-ENS", "crps"] < prob.loc["ERA5", "crps"]
+    assert 0.5 < prob.loc["CorrDiff-ENS", "spread_skill_ratio"] < 1.5
+    assert (out / "figures" / "rank_histogram_CorrDiff-ENS.png").exists()
+    assert (out / "reliability_table.csv").exists()
     assert (out / "summary.md").exists()
     shutil.rmtree(out)

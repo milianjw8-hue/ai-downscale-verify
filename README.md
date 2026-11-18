@@ -17,6 +17,7 @@ AI 다운스케일링 모델은 보통 고해상도 **수치모델 출력**을 �
 - 강풍 꼬리(상위 분위수)와 최댓값을 살려내는가? (p90·p95·p99 편차, Q-Q 그림)
 - 강풍 사건을 맞히는가? (임계값별 POD, FAR, CSI, 빈도 편차)
 - 저해상도 자료보다 나은 정도가 우연이 아닌가? (MSE 기술점수와 이동 블록 부트스트랩 95% 신뢰구간)
+- 앙상블이라면 불확실성을 제대로 표현하는가? (CRPS, 퍼짐-오차 비, 순위 히스토그램, 브라이어 점수와 신뢰도 도표)
 
 ## 설치
 
@@ -45,6 +46,8 @@ dsverify run configs/example_jeju_synthetic.yaml
 | `scores_station.csv`, `scores_all.csv` | 연속 점수(지점별, 통합) |
 | `categorical_station.csv`, `categorical_all.csv` | 임계값별 분할표 점수 |
 | `skill_vs_reference.csv` | 기준 자료 대비 MSE 기술점수와 신뢰구간 |
+| `probabilistic_all.csv` | 모든 모델의 CRPS(결정론 모델은 MAE와 같음), 앙상블의 공정 CRPS·퍼짐-오차 비·순위 평탄도·브라이어 점수 |
+| `reliability_table.csv` | 임계값별 신뢰도 도표 자료 |
 | `matched.csv` | 관측-모델 짝 자료(재분석용) |
 | `figures/` | 지점별 시계열, 산점도, Q-Q 그림, 지점별 점수 막대그림 |
 
@@ -77,6 +80,7 @@ dsverify run configs/example_jeju_synthetic.yaml
 - **격자 형태**: 위경도가 1차원이면 `bilinear`, 2차원(곡선 격자)이면 `idw4`나 `nearest`를 씁니다.
 - **영역 밖 지점**: 가장 가까운 격자점까지 거리가 `max_dist_km`를 넘으면 그 지점은 제외합니다.
 - **공정 비교**: `common_sample: true`이면 모든 모델이 같은 (지점, 시각) 짝으로만 검증됩니다.
+- **앙상블**: 모델 설정에 `member_dim: ensemble`을 넣으면(Earth2Studio 앙상블 출력의 차원 이름) 구성원별로 지점 값을 뽑습니다. 결정론 점수는 구성원 풍속 평균으로, 확률 점수는 전체 구성원으로 계산합니다.
 - **풍속계 높이**: 10 m가 아닌 지점은 `height_m`를 채우고 `adjust_to_10m: true`로 로그 법칙 보정을
   할 수 있습니다. 1차 보정이므로 결과 해석에 유의합니다.
 
@@ -116,8 +120,10 @@ MIT. [`LICENSE`](LICENSE) 참고.
 (ERA5) and optionally an NWP model. It handles regular and curvilinear grids, KST/UTC
 alignment, common-sample comparison, continuous scores (bias, MAE, RMSE, correlation,
 standard-deviation ratio, tail-quantile bias, direction error, vector RMSE), strong-wind
-contingency scores (POD, FAR, CSI, FBI, ETS) and an MSE skill score against a reference
-with a moving-block bootstrap confidence interval.
+contingency scores (POD, FAR, CSI, FBI, ETS) an MSE skill score against a reference
+with a moving-block bootstrap confidence interval, and for ensembles (e.g. CorrDiff samples)
+the CRPS (plain and fair), spread-skill ratio, rank histograms and Brier scores with
+reliability diagrams.
 
 ```bash
 pip install -e ".[dev]"

@@ -97,3 +97,49 @@ def score_bars(station_scores: pd.DataFrame, models, outdir: Path, keys=("bias",
     fig.tight_layout()
     fig.savefig(outdir / "station_scores.png", dpi=130)
     plt.close(fig)
+
+
+def rank_histograms(members: pd.DataFrame, outdir: Path):
+    """Rank histogram per ensemble model (flat = consistent; U-shape = too little spread)."""
+    from .ensemble import member_array
+    from .probabilistic import rank_flatness, rank_histogram
+
+    for m in members["model"].unique():
+        x, y, _ = member_array(members, m)
+        c = rank_histogram(y, x)
+        f = rank_flatness(c)
+        fig, ax = plt.subplots(figsize=(4.6, 3.2))
+        ax.bar(np.arange(len(c)), c / c.sum(), color="#1f77b4", width=0.85)
+        ax.axhline(1 / len(c), color="k", ls="--", lw=0.8, label="flat")
+        ax.set_xlabel("rank of observation among members")
+        ax.set_ylabel("relative frequency")
+        ax.set_title(f"{m}: delta={f['delta']:.2f}, outside={100 * f['outside_fraction']:.0f}%", fontsize=9)
+        ax.legend(fontsize=7)
+        fig.tight_layout()
+        fig.savefig(outdir / f"rank_histogram_{m}.png", dpi=130)
+        plt.close(fig)
+
+
+def reliability(rel: pd.DataFrame, outdir: Path):
+    """Reliability diagram per threshold (forecast probability vs observed frequency)."""
+    if rel.empty:
+        return
+    for thr, g in rel.groupby("threshold"):
+        models = list(dict.fromkeys(g["model"]))
+        col = _color(models)
+        fig, ax = plt.subplots(figsize=(4.2, 4.2))
+        ax.plot([0, 1], [0, 1], "k--", lw=0.8)
+        for m in models:
+            s = g[g["model"] == m]
+            ax.plot(s["forecast_prob"], s["observed_freq"], "o-", color=col[m], ms=4, label=m)
+        ax.set_xlim(0, 1)
+        ax.set_ylim(0, 1)
+        ax.set_aspect("equal")
+        ax.set_xlabel("forecast probability")
+        ax.set_ylabel("observed frequency")
+        ax.set_title(f"wind speed >= {thr:g} m/s")
+        ax.grid(alpha=0.3)
+        ax.legend(fontsize=7)
+        fig.tight_layout()
+        fig.savefig(outdir / f"reliability_{thr:g}.png", dpi=130)
+        plt.close(fig)
