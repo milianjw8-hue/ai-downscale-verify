@@ -1,7 +1,7 @@
 """Probabilistic (ensemble) verification scores.
 
 Pure NumPy. The ensemble member axis is the LAST axis of `ens` unless `axis` is given.
-The same module is used in ai-weather-korea-eval (kwxeval.probabilistic).
+Shared with ai-weather-korea-eval (kwxeval.probabilistic); keep the two copies identical.
 
 References
 ----------
